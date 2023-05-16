@@ -1,10 +1,11 @@
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
 const cors = require("cors");
-const uuid = require("uuid");
+// const uuid = require("uuid");
+const shortid = require("shortid");
 const app = express();
 const port = 5000;
-const productNumber = uuid.v4();
+// const productNumber = uuid.v4();
 
 // neamulE-commerce
 // t60nZwyKZNpAUY6A
@@ -72,16 +73,15 @@ async function run() {
       res.sendStatus(500);
     }
 
-    try{
+    try {
       app.get("/dashboard/product/:id", async (req, res) => {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
         const result = await products.find(query).toArray();
         res.send(result);
       });
-    }
-    catch (err){
-      res.sendStatus(500)
+    } catch (err) {
+      res.sendStatus(500);
     }
 
     try {
@@ -93,12 +93,13 @@ async function run() {
         const update = {
           $push: {
             products: {
+              image: newProduct.image,
               title: newProduct.title,
               color: newProduct.color,
               price: newProduct.price,
               regularPrice: newProduct.regularPrice,
-              slug: newProduct.slug + productNumber,
-              id: productNumber,
+              slug: newProduct.slug + shortid.generate(),
+              id: shortid.generate(),
             },
           },
         };
@@ -111,6 +112,46 @@ async function run() {
       res.sendStatus(500);
     }
 
+    try {
+      app.delete("/dashboard/product/:id", async (req, res) => {
+        const id = req.params.id;
+        // console.log(id);
+        const query = { "products.id": id };
+        const deleteProduct = {
+          $pull: {
+            products: { id: id },
+          },
+        };
+        const result = await products.updateOne(query, deleteProduct);
+        res.send(result);
+      });
+    } catch (err) {
+      console.log(err);
+    }
+
+    try{
+      app.put('/dashboard/editProduct/:id', async (req,res) => {
+        const id = req.params.id
+        const query = {"products.id" : id}
+        const product = req.body
+        // console.log(products);
+        const updateProduct = {
+          $set: {
+            // "products.$.image": req.body.image,
+            "products.$.title": product.title,
+            "products.$.color": product.color,
+            "products.$.price": product.price,
+            "products.$.regularPrice": product.regularPrice,
+            "products.$.slug": product.slug + shortid.generate()
+          },
+        }
+        const options = {upsert: true}
+        const result = await products.updateOne(query, updateProduct,options)
+        res.send(result)
+      })
+    }catch(err){
+      console.log(err);
+    }
 
   } finally {
   }
