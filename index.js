@@ -1,11 +1,11 @@
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
 const cors = require("cors");
-// const uuid = require("uuid");
 const shortid = require("shortid");
 const app = express();
 const port = 5000;
-// const productNumber = uuid.v4();
+
+
 
 // neamulE-commerce
 // t60nZwyKZNpAUY6A
@@ -23,8 +23,9 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    const products = client.db("neamulE-commerce").collection("products");
+    const category = client.db("neamulE-commerce").collection("category");
     const colors = client.db("neamulE-commerce").collection("colors");
+    const products = client.db("neamulE-commerce").collection("products");
 
     try {
       app.get("/products", async (req, res) => {
@@ -90,14 +91,19 @@ async function run() {
         const filter = { _id: new ObjectId(id) };
         const newProduct = req.body;
         // console.log(newProduct);
+        // console.log(newProduct);
         const update = {
           $push: {
             products: {
+              userName : newProduct.userName,
               image: newProduct.image,
               title: newProduct.title,
               color: newProduct.color,
               price: newProduct.price,
+              date : newProduct.date,
+              details: newProduct.details,
               regularPrice: newProduct.regularPrice,
+              percentage: newProduct.percentage,
               slug: newProduct.slug + shortid.generate(),
               id: shortid.generate(),
             },
@@ -129,11 +135,11 @@ async function run() {
       console.log(err);
     }
 
-    try{
-      app.put('/dashboard/editProduct/:id', async (req,res) => {
-        const id = req.params.id
-        const query = {"products.id" : id}
-        const product = req.body
+    try {
+      app.put("/dashboard/editProduct/:id", async (req, res) => {
+        const id = req.params.id;
+        const query = { "products.id": id };
+        const product = req.body;
         // console.log(products);
         const updateProduct = {
           $set: {
@@ -141,17 +147,66 @@ async function run() {
             "products.$.title": product.title,
             "products.$.color": product.color,
             "products.$.price": product.price,
+            "products.$details": product.details,
             "products.$.regularPrice": product.regularPrice,
-            "products.$.slug": product.slug + shortid.generate()
+            "products.$.slug": product.slug + shortid.generate(),
           },
-        }
-        const options = {upsert: true}
-        const result = await products.updateOne(query, updateProduct,options)
-        res.send(result)
-      })
-    }catch(err){
+        };
+        const options = { upsert: true };
+        const result = await products.updateOne(query, updateProduct, options);
+        res.send(result);
+      });
+    } catch (err) {
       console.log(err);
     }
+
+    try {
+      app.delete("/dashboard/productCategory/:id", async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await products.deleteOne(query);
+        res.send(result);
+      });
+    } catch (error) {
+      console.log(error);
+    }
+
+    try {
+      app.put("/dashboard/productCategory/:id", async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const newProduct = req.body;
+        // console.log(newProduct);
+        const updateCategory = {
+          $set: {
+            items: newProduct.items,
+            category: newProduct.category.toLowerCase(),
+            banner: newProduct.banner,
+          },
+        };
+        const options = { upsert: true };
+        const result = await products.updateOne(query, updateCategory, options);
+        res.send(result);
+      });
+    } catch (err) {
+      console.log(err);
+    }
+
+    try {
+      app.post("/dashboard/productCategory", async (req, res) => {
+        const newCategoryItem = req.body;
+        // console.log(newCategoryItem);
+        const result = await products.insertOne(newCategoryItem);
+        res.send(result);
+      });
+    } catch {}
+    try {
+      app.get("/dashboard/category", async (req, res) => {
+        const query = {};
+        const result = await category.find(query).toArray();
+        res.send(result);
+      });
+    } catch {}
 
   } finally {
   }
