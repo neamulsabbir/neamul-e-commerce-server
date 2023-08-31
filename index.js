@@ -4,14 +4,17 @@ const cors = require("cors");
 const shortid = require("shortid");
 const app = express();
 const port = 5000;
-
-
+const multer = require('multer')
+const upload = multer({ dest: 'uploads/' })
 
 // neamulE-commerce
 // t60nZwyKZNpAUY6A
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+}));
 app.use(express.json());
+app.use('/uploads', express.static('uploads'))
 
 const uri =
   "mongodb+srv://neamulE-commerce:t60nZwyKZNpAUY6A@cluster0.ivmjea7.mongodb.net/?retryWrites=true&w=majority";
@@ -23,190 +26,270 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    const category = client.db("neamulE-commerce").collection("category");
     const colors = client.db("neamulE-commerce").collection("colors");
-    const products = client.db("neamulE-commerce").collection("products");
+    const users = client.db("neamulE-commerce").collection("users");
+    const orders = client.db("neamulE-commerce").collection("orders");
+    const productsCollection = client.db("neamulE-commerce").collection("productss");
+    const bannerCollection = client.db("neamulE-commerce").collection("product banner");
 
-    try {
-      app.get("/products", async (req, res) => {
-        const query = {};
-        const result = await products.find(query).toArray();
-        res.send(result);
-      });
-    } catch (err) {
-      res.sendStatus(500);
-    }
+    app.get('/api/products', async (req, res) => {
+      const result = await productsCollection.find({}).toArray();
+      res.send(result)
+    })
 
-    try {
-      app.get("/products/:name", async (req, res) => {
-        const name = req.params.name;
-        const query = { category: name };
-        const result = await products.find(query).toArray();
-        res.send(result);
-      });
-    } catch (err) {
-      res.sendStatus(500);
-    }
+    app.delete('/api/products/deleteProducts/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const result = await productsCollection.deleteOne(query)
+      res.send(result)
+    })
 
-    try {
-      app.get("/products/allProducts/:slug", async (req, res) => {
-        const slug = req.params.slug;
-        // console.log(slug);
-        const query = { "products.slug": slug };
-        const result = await products.findOne(query);
-        const currentProduct = result.products.find(
-          (item) => item.slug === slug
-        );
-
-        res.send(currentProduct);
-      });
-    } catch (err) {
-      res.sendStatus(500);
-    }
-
-    try {
-      app.get("/colors", async (req, res) => {
-        const query = {};
-        const result = await colors.find(query).toArray();
-        res.send(result);
-      });
-    } catch (err) {
-      res.sendStatus(500);
-    }
-
-    try {
-      app.get("/dashboard/product/:id", async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const result = await products.find(query).toArray();
-        res.send(result);
-      });
-    } catch (err) {
-      res.sendStatus(500);
-    }
-
-    try {
-      app.put("/dashboard/product/:id", async (req, res) => {
-        const id = req.params.id;
-        const filter = { _id: new ObjectId(id) };
-        const newProduct = req.body;
-        // console.log(newProduct);
-        // console.log(newProduct);
+    app.get("/api/products/:name", async (req, res) => {
+      const name = req.params.name;
+      console.log(name);
+      const query = { category: name };
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
+    app.get("/api/allProducts/:slug", async (req, res) => {
+      const slug = req.params.slug;
+      // console.log(slug);
+      const query = { slug: slug };
+      const result = await productsCollection.findOne(query)
+      res.send(result);
+    });
+    app.post('/api/products/addProducts', upload.single('image'), async (req, res) => {
+      const title = req.body.title
+      const slug = req.body.slug
+      const color = req.body.color
+      const stock = req.body.stock
+      const price = req.body.price
+      const regularPrice = req.body.regularPrice
+      const costPrice = req.body.costPrice
+      const category = req.body.category
+      const details = req.body.details
+      const userName = req.body.userName
+      const date = req.body.date
+      const image = req.file.path
+      const data = { title, slug, color, stock, price, regularPrice, costPrice, category, details, userName, date, image }
+      const result = await productsCollection.insertOne(data)
+      res.send(result)
+    })
+    app.put('/api/products/editProducts/:id', upload.single('image'), async (req, res) => {
+      console.log(req.body, req.file);
+      if (req.file) {
+        const id = req.params.id
+        const filter = { _id: new ObjectId(id) }
         const update = {
-          $push: {
-            products: {
-              userName : newProduct.userName,
-              image: newProduct.image,
-              title: newProduct.title,
-              color: newProduct.color,
-              price: newProduct.price,
-              date : newProduct.date,
-              details: newProduct.details,
-              regularPrice: newProduct.regularPrice,
-              percentage: newProduct.percentage,
-              slug: newProduct.slug + shortid.generate(),
-              id: shortid.generate(),
-            },
-          },
-        };
-
-        const options = { upsert: true };
-        const result = await products.updateOne(filter, update, options);
-        res.send(result);
-      });
-    } catch (err) {
-      res.sendStatus(500);
-    }
-
-    try {
-      app.delete("/dashboard/product/:id", async (req, res) => {
-        const id = req.params.id;
-        // console.log(id);
-        const query = { "products.id": id };
-        const deleteProduct = {
-          $pull: {
-            products: { id: id },
-          },
-        };
-        const result = await products.updateOne(query, deleteProduct);
-        res.send(result);
-      });
-    } catch (err) {
-      console.log(err);
-    }
-
-    try {
-      app.put("/dashboard/editProduct/:id", async (req, res) => {
-        const id = req.params.id;
-        const query = { "products.id": id };
-        const product = req.body;
-        // console.log(products);
-        const updateProduct = {
           $set: {
-            // "products.$.image": req.body.image,
-            "products.$.title": product.title,
-            "products.$.color": product.color,
-            "products.$.price": product.price,
-            "products.$details": product.details,
-            "products.$.regularPrice": product.regularPrice,
-            "products.$.slug": product.slug + shortid.generate(),
+            title: req.body.title,
+            slug: req.body.slug,
+            color: req.body.color,
+            stock: req.body.stock,
+            price: req.body.price,
+            regularPrice: req.body.regularPrice,
+            costPrice: req.body.costPrice,
+            category: req.body.category,
+            details: req.body.details,
+            userName: req.body.userName,
+            date: req.body.date,
+            image: req.file.path
           },
         };
         const options = { upsert: true };
-        const result = await products.updateOne(query, updateProduct, options);
-        res.send(result);
-      });
-    } catch (err) {
-      console.log(err);
-    }
-
-    try {
-      app.delete("/dashboard/productCategory/:id", async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const result = await products.deleteOne(query);
-        res.send(result);
-      });
-    } catch (error) {
-      console.log(error);
-    }
-
-    try {
-      app.put("/dashboard/productCategory/:id", async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const newProduct = req.body;
-        // console.log(newProduct);
-        const updateCategory = {
+        const result = await productsCollection.updateOne(filter, update, options);
+        res.send(result)
+      } else {
+        const id = req.params.id
+        const filter = { _id: new ObjectId(id) }
+        const update = {
           $set: {
-            items: newProduct.items,
-            category: newProduct.category.toLowerCase(),
-            banner: newProduct.banner,
+            title: req.body.title,
+            slug: req.body.slug,
+            color: req.body.color,
+            stock: req.body.stock,
+            price: req.body.price,
+            regularPrice: req.body.regularPrice,
+            costPrice: req.body.costPrice,
+            category: req.body.category,
+            details: req.body.details,
+            userName: req.body.userName,
+            date: req.body.date,
+            image: req.body.image
           },
         };
         const options = { upsert: true };
-        const result = await products.updateOne(query, updateCategory, options);
-        res.send(result);
-      });
-    } catch (err) {
-      console.log(err);
-    }
+        const result = await productsCollection.updateOne(filter, update, options);
+        res.send(result)
+      }
+    })
 
-    try {
-      app.post("/dashboard/productCategory", async (req, res) => {
-        const newCategoryItem = req.body;
-        // console.log(newCategoryItem);
-        const result = await products.insertOne(newCategoryItem);
-        res.send(result);
-      });
-    } catch {}
-    try {
-      app.get("/dashboard/category", async (req, res) => {
-        const query = {};
-        const result = await category.find(query).toArray();
-        res.send(result);
-      });
-    } catch {}
+    app.get('/api/banner', async (req, res) => {
+      const result = await bannerCollection.find({}).toArray();
+      res.send(result)
+    })
+
+    app.delete('/api/delete-banner-category/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const result = await bannerCollection.deleteOne(query);
+      res.send(result)
+    })
+
+    app.post('/api/added-banner-category', upload.single('banner'), async (req, res) => {
+      if (req.file) {
+        const category = req.body.category
+        const banner = req.file.path
+        const data = { category, banner }
+        const result = await bannerCollection.insertOne(data)
+        res.send(result)
+      } else {
+        const category = req.body
+        const result = await bannerCollection.insertOne(category)
+        res.send(result)
+      }
+
+    })
+
+    app.put('/api/edit-banner-category/:id', upload.single('banner'), async (req, res) => {
+      if (req.file) {
+        const id = req.params.id
+        const filter = { _id: new ObjectId(id) }
+        const update = {
+          $set: {
+            category: req.body.category,
+            banner: req.file.path
+          },
+        };
+        const options = { upsert: true };
+        const result = await productsCollection.updateOne(filter, update, options);
+        res.send(result)
+      } else {
+        const id = req.params.id
+        const filter = { _id: new ObjectId(id) }
+        const update = {
+          $set: {
+            category: req.body.category,
+            banner: req.body.banner
+          },
+        };
+        const options = { upsert: true };
+        const result = await productsCollection.updateOne(filter, update, options);
+        res.send(result)
+      }
+    })
+
+    app.get("/colors", async (req, res) => {
+      const query = {};
+      const result = await colors.find(query).toArray();
+      res.send(result);
+    });
+
+
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const result = await users.insertOne(user);
+      res.send(result);
+    });
+
+    app.get("/users", async (req, res) => {
+      const user = req.body;
+      const result = await users.find(user).toArray();
+      res.send(result);
+    });
+
+    app.delete("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await users.deleteOne(query);
+      res.send(result);
+    });
+
+    app.get("/userss/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      console.log(email)
+      const query = { email };
+      const result = await users.findOne(query)
+      res.send({ isAdmin: result?.role === 'admin' })
+    });
+
+    app.put("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await users.updateOne(query, updateDoc, options)
+      res.send(result)
+    });
+
+
+    app.put("/users/delete-admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $unset: {
+          role: "",
+        },
+      };
+      const result = await users.updateOne(query, updateDoc, options)
+      res.send(result)
+    });
+
+    app.get('/orders', async (req, res) => {
+      let query = {}
+      if (req.query.email) {
+        query = {
+          email: req.query.email
+        }
+      }
+      const result = await orders.find(query).toArray()
+      res.send(result)
+    })
+
+    app.post('/orders', async (req, res) => {
+      const ordersData = req.body
+      const result = await orders.insertOne(ordersData)
+      res.send(result)
+    })
+
+    app.delete('/orders/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const result = await orders.deleteOne(query)
+      res.send(result)
+    })
+
+    app.get('/dashboard/orders', async (req, res) => {
+      let query = {}
+      const result = await orders.find(query).toArray()
+      res.send(result)
+    })
+
+    app.delete('/dashboard/orders/:id', async (req, res) => {
+      const id = req.params.id
+      let query = { _id: new ObjectId(id) }
+      const result = await orders.deleteOne(query)
+      res.send(result)
+    })
+
+    app.put('/api/dashboard/orders/:id', async (req, res) => {
+      const id = req.params.id
+      console.log(id);
+      const query = { _id: new ObjectId(id) }
+      const options = { upsert: true }
+      const updateDoc = {
+        $set: {
+          status: "approved",
+        },
+      }
+      const result = await orders.updateOne(query, updateDoc, options)
+      res.send(result)
+    })
 
   } finally {
   }
@@ -219,4 +302,5 @@ app.get("/", (req, res) => {
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
-});
+})
+
